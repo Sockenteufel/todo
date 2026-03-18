@@ -5,9 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running the app
 
 ```bash
-python app.py          # starts Flask on http://localhost:5000
-iniciar.bat            # Windows shortcut: opens browser + starts server
+pip install -r requirements.txt   # first time only
+python app.py                     # starts Flask on http://localhost:5000
+iniciar.bat                       # Windows shortcut: opens browser + starts server
 ```
+
+There are no tests or linter configured for this project.
 
 ## Architecture
 
