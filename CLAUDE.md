@@ -10,6 +10,8 @@ python app.py                     # starts Flask on http://localhost:5000
 iniciar.bat                       # Windows shortcut: opens browser + starts server
 ```
 
+For local runs, set credentials via environment variables before starting (`set APP_USERNAME=x` / `set APP_PASSWORD=y` on Windows), or use a `.env` file with `python-dotenv`. Default credentials are `admin` / `changeme`.
+
 There are no tests or linter configured for this project.
 
 ## Architecture
