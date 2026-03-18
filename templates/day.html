@@ -85,7 +85,11 @@
           </svg>
         </div>
         <div class="task-body">
-          <div class="task-title">{{ task.title }}</div>
+          <div class="task-title">
+            {{ task.title }}
+            {% set cat = sidebar.categories | selectattr('id', 'equalto', task.category) | first | default(none) %}
+            {% if cat %}<span class="cat-badge" style="--cat-color:{{ cat.color }}">{{ cat.name }}</span>{% endif %}
+          </div>
           {% if task.notes %}
           <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes }}</div>
           <button class="notes-toggle" onclick="toggleNotes(this)" data-id="{{ task.id }}">▼ Ver más</button>
@@ -105,6 +109,7 @@
             data-title="{{ task.title }}"
             data-notes="{{ task.notes or '' }}"
             data-date="{{ task.due_date or '' }}"
+            data-category="{{ task.category or '' }}"
             title="Editar">✏</button>
           <button class="act-btn red" onclick="deleteTask('{{ task.id }}')" title="Eliminar">✕</button>
         </div>
@@ -140,6 +145,15 @@
         <label class="f-label">Notas</label>
         <textarea class="f-textarea" id="nNotes" placeholder="Notas opcionales..."></textarea>
       </div>
+      <div class="f-group">
+        <label class="f-label" style="display:flex;justify-content:space-between;align-items:center">
+          Categoría
+          <a href="#" onclick="event.preventDefault();openCatModal()" style="font-size:10px;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0">+ Gestionar</a>
+        </label>
+        <select class="f-input cat-select" id="nCat">
+          <option value="">Sin categoría</option>
+        </select>
+      </div>
       <div class="f-actions">
         <button class="btn btn-ghost" onclick="hideForm()">Cancelar</button>
         <button class="btn btn-primary" onclick="addTask()">Agregar</button>
@@ -164,17 +178,19 @@ function hideForm() {
   document.getElementById('addForm').classList.remove('open');
   document.getElementById('nTitle').value = '';
   document.getElementById('nNotes').value = '';
+  document.getElementById('nCat').value = '';
 }
 
 async function addTask() {
   const title = document.getElementById('nTitle').value.trim();
   const notes = document.getElementById('nNotes').value.trim();
+  const category = document.getElementById('nCat').value || null;
   if (!title) { document.getElementById('nTitle').focus(); return; }
 
   const r = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, notes, due_date: DATE_STR }),
+    body: JSON.stringify({ title, notes, due_date: DATE_STR, category }),
   });
   if (r.ok) location.reload();
 }

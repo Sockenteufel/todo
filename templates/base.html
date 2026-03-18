@@ -507,6 +507,42 @@
     .task-item.linked:hover { border-color: var(--accent); }
     .task-item.linked:hover .task-title { color: var(--accent); }
     .task-item.done.linked:hover .task-title { color: var(--muted); }
+
+    /* ── CATEGORY BADGE ── */
+    .cat-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+      color: var(--cat-color, #6366f1);
+      border: 1px solid var(--cat-color, #6366f1);
+      margin-left: 6px;
+      vertical-align: middle;
+      white-space: nowrap;
+      letter-spacing: 0.2px;
+      flex-shrink: 0;
+      opacity: 0.85;
+    }
+
+    /* ── CATEGORY MANAGEMENT MODAL ── */
+    .cat-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-list-item:last-child { border-bottom: none; }
+    .cat-color-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      display: inline-block; margin-right: 6px; flex-shrink: 0;
+    }
+    .cat-list-name {
+      display: flex; align-items: center; flex: 1;
+      font-size: 13px; color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -606,9 +642,20 @@
       <label class="f-label">Notas</label>
       <textarea class="f-textarea" id="eNotes" placeholder="Notas opcionales..."></textarea>
     </div>
-    <div class="f-group">
-      <label class="f-label">Fecha (dejar vacío para mover al Inbox)</label>
-      <input type="date" class="f-input" id="eDate">
+    <div class="f-row">
+      <div class="f-group">
+        <label class="f-label">Fecha (dejar vacío para mover al Inbox)</label>
+        <input type="date" class="f-input" id="eDate">
+      </div>
+      <div class="f-group">
+        <label class="f-label" style="display:flex;justify-content:space-between;align-items:center">
+          Categoría
+          <a href="#" onclick="event.preventDefault();openCatModal()" style="font-size:10px;color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0">+ Gestionar</a>
+        </label>
+        <select class="f-input cat-select" id="eCat">
+          <option value="">Sin categoría</option>
+        </select>
+      </div>
     </div>
     <div class="f-actions">
       <button class="btn btn-ghost" onclick="closeEdit()">Cancelar</button>
@@ -617,13 +664,113 @@
   </div>
 </div>
 
+<!-- CATEGORY MANAGEMENT MODAL -->
+<div class="overlay" id="catOverlay">
+  <div class="modal" style="width:400px">
+    <div class="modal-title">Gestionar categorías</div>
+    <div id="catList" style="min-height:40px;margin-bottom:12px"></div>
+    <div style="padding-top:12px;border-top:1px solid var(--border)">
+      <div class="f-row" style="align-items:flex-end;gap:8px">
+        <div class="f-group" style="flex:1;margin-bottom:0">
+          <label class="f-label">Nueva categoría</label>
+          <input type="text" class="f-input" id="catNameInput" placeholder="Nombre...">
+        </div>
+        <div style="padding-bottom:10px">
+          <input type="color" id="catColorInput" value="#6366f1"
+                 style="width:36px;height:36px;border:1px solid var(--border);padding:2px;cursor:pointer;border-radius:6px;background:white">
+        </div>
+      </div>
+    </div>
+    <div class="f-actions" style="margin-top:10px">
+      <button class="btn btn-ghost" onclick="closeCatModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="createCategory()">Agregar</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  // ── CATEGORIES ──
+  let CATEGORIES = [];
+
+  async function loadCategories() {
+    const r = await fetch('/api/categories');
+    if (r.ok) {
+      CATEGORIES = await r.json();
+      refreshCategorySelects();
+    }
+  }
+
+  function refreshCategorySelects() {
+    document.querySelectorAll('.cat-select').forEach(sel => {
+      const current = sel.value;
+      sel.innerHTML = '<option value="">Sin categoría</option>' +
+        CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      sel.value = current;
+    });
+  }
+
+  // ── CATEGORY MODAL ──
+  function openCatModal() {
+    renderCatList();
+    document.getElementById('catOverlay').classList.add('open');
+  }
+
+  function closeCatModal() {
+    document.getElementById('catOverlay').classList.remove('open');
+  }
+
+  function renderCatList() {
+    const list = document.getElementById('catList');
+    if (CATEGORIES.length === 0) {
+      list.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:4px 0">No hay categorías. Agrega una abajo.</p>';
+      return;
+    }
+    list.innerHTML = CATEGORIES.map(c => `
+      <div class="cat-list-item">
+        <span class="cat-list-name">
+          <span class="cat-color-dot" style="background:${c.color}"></span>
+          ${c.name}
+        </span>
+        <button class="act-btn red" onclick="deleteCategory('${c.id}')" title="Eliminar">✕</button>
+      </div>
+    `).join('');
+  }
+
+  async function createCategory() {
+    const name = document.getElementById('catNameInput').value.trim();
+    const color = document.getElementById('catColorInput').value;
+    if (!name) { document.getElementById('catNameInput').focus(); return; }
+    const r = await fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, color }),
+    });
+    if (r.ok) {
+      const cat = await r.json();
+      CATEGORIES.push(cat);
+      document.getElementById('catNameInput').value = '';
+      refreshCategorySelects();
+      renderCatList();
+    }
+  }
+
+  async function deleteCategory(id) {
+    if (!confirm('¿Eliminar esta categoría? Las tareas que la usen quedarán sin categoría.')) return;
+    const r = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+    if (r.ok) {
+      CATEGORIES = CATEGORIES.filter(c => c.id !== id);
+      refreshCategorySelects();
+      renderCatList();
+    }
+  }
+
   // ── MODAL ──
-  function openEdit(id, title, notes, due_date) {
+  function openEdit(id, title, notes, due_date, category) {
     document.getElementById('eId').value = id;
     document.getElementById('eTitle').value = title;
     document.getElementById('eNotes').value = notes || '';
     document.getElementById('eDate').value = due_date || '';
+    document.getElementById('eCat').value = category || '';
     document.getElementById('editOverlay').classList.add('open');
     setTimeout(() => document.getElementById('eTitle').focus(), 60);
   }
@@ -637,13 +784,14 @@
     const title = document.getElementById('eTitle').value.trim();
     const notes = document.getElementById('eNotes').value.trim();
     const due_date = document.getElementById('eDate').value || null;
+    const category = document.getElementById('eCat').value || null;
 
     if (!title) { document.getElementById('eTitle').focus(); return; }
 
     const r = await fetch(`/api/tasks/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, notes, due_date }),
+      body: JSON.stringify({ title, notes, due_date, category }),
     });
     if (r.ok) {
       const t = await r.json();
@@ -669,13 +817,16 @@
   document.getElementById('editOverlay').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeEdit();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
+  document.getElementById('catOverlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeCatModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEdit(); closeCatModal(); } });
 
   // Edit button via data attributes (avoids quote-escaping issues)
   document.addEventListener('click', e => {
     const btn = e.target.closest('.edit-btn');
     if (btn) {
-      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date);
+      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date, btn.dataset.category);
     }
   });
 
@@ -730,7 +881,7 @@
     if (r.ok) location.reload();
   }
 
-  document.addEventListener('DOMContentLoaded', initNotesToggle);
+  document.addEventListener('DOMContentLoaded', () => { initNotesToggle(); loadCategories(); });
 </script>
 
 <script>

@@ -80,12 +80,15 @@ def format_date_short(date_str, today_str):
 
 def load_data():
     if not os.path.exists(DATA_FILE):
-        return {"tasks": []}
+        return {"tasks": [], "categories": []}
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         try:
-            return json.load(f)
+            data = json.load(f)
+            if 'categories' not in data:
+                data['categories'] = []
+            return data
         except json.JSONDecodeError:
-            return {"tasks": []}
+            return {"tasks": [], "categories": []}
 
 
 def save_data(data):
@@ -217,6 +220,7 @@ def get_sidebar_data(current_date_str=None):
         'current_date': current_date_str,
         'gcal_enabled': os.path.exists(CREDENTIALS_FILE),
         'gcal_connected': os.path.exists(CREDENTIALS_FILE) and os.path.exists(TOKEN_FILE),
+        'categories': data.get('categories', []),
     }
 
 
@@ -409,6 +413,7 @@ def create_task():
         'title': title,
         'notes': (req.get('notes') or '').strip(),
         'due_date': req.get('due_date') or None,
+        'category': req.get('category') or None,
         'completed': False,
         'created_at': datetime.now().isoformat(),
         'completed_at': None,
@@ -430,6 +435,8 @@ def update_task(task_id):
                 task['notes'] = (req['notes'] or '').strip()
             if 'due_date' in req:
                 task['due_date'] = req['due_date'] or None
+            if 'category' in req:
+                task['category'] = req['category'] or None
             if 'completed' in req:
                 task['completed'] = bool(req['completed'])
                 task['completed_at'] = (
@@ -461,6 +468,55 @@ def delete_task(task_id):
     data['tasks'] = [t for t in data['tasks'] if t['id'] != task_id]
     if len(data['tasks']) == before:
         return jsonify({'error': 'Tarea no encontrada'}), 404
+    save_data(data)
+    return jsonify({'success': True})
+
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    data = load_data()
+    return jsonify(data.get('categories', []))
+
+
+@app.route('/api/categories', methods=['POST'])
+def create_category():
+    data = load_data()
+    req = request.get_json(force=True)
+    name = (req.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'El nombre es requerido'}), 400
+    color = req.get('color') or '#6366f1'
+    cat = {'id': str(uuid.uuid4()), 'name': name, 'color': color}
+    data.setdefault('categories', []).append(cat)
+    save_data(data)
+    return jsonify(cat), 201
+
+
+@app.route('/api/categories/<cat_id>', methods=['PUT'])
+def update_category(cat_id):
+    data = load_data()
+    for cat in data.get('categories', []):
+        if cat['id'] == cat_id:
+            req = request.get_json(force=True)
+            if 'name' in req:
+                cat['name'] = (req['name'] or '').strip()
+            if 'color' in req:
+                cat['color'] = req['color'] or '#6366f1'
+            save_data(data)
+            return jsonify(cat)
+    return jsonify({'error': 'Categoría no encontrada'}), 404
+
+
+@app.route('/api/categories/<cat_id>', methods=['DELETE'])
+def delete_category(cat_id):
+    data = load_data()
+    before = len(data.get('categories', []))
+    data['categories'] = [c for c in data.get('categories', []) if c['id'] != cat_id]
+    if len(data['categories']) == before:
+        return jsonify({'error': 'Categoría no encontrada'}), 404
+    for task in data['tasks']:
+        if task.get('category') == cat_id:
+            task['category'] = None
     save_data(data)
     return jsonify({'success': True})
 
