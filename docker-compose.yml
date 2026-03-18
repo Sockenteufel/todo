@@ -1,0 +1,28 @@
+services:
+  todo:
+    image: sockenteufel/todo-app:latest   # reemplaza con tu usuario de Docker Hub
+    container_name: todo-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Credenciales de acceso a la app
+      - APP_USERNAME=Admin
+      - APP_PASSWORD=cambia-esto-por-tu-password
+      # Clave secreta para sesiones Flask — cambia este valor
+      - SECRET_KEY=Tr3sv3c3ss0p0rt3.
+      # URL base del servidor — necesaria para el callback de Google OAuth
+      - BASE_URL=http://IP-DEL-SERVIDOR:5000
+      # Permite OAuth sobre HTTP (sin HTTPS) — OK para red local
+      - OAUTHLIB_INSECURE_TRANSPORT=1
+    volumes:
+      - todo-data:/app/data
+    networks:
+      prod_lan:
+        ipv4_address: 192.168.0.35
+volumes:
+  todo-data:
+
+networks:
+  prod_lan:
+    external: true

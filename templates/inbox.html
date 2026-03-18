@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Inbox{% endblock %}
+
+{% block content %}
+
+{# ── HEADER ── #}
+<div class="page-header">
+  <h1 class="page-title">📥 Inbox</h1>
+  <p class="page-sub">Tareas sin fecha asignada</p>
+  {% if tasks %}
+  <div class="stats" style="margin-top:8px">
+    <span class="stat"><strong>{{ tasks | length }}</strong> tarea{{ 's' if tasks|length != 1 }} por programar</span>
+  </div>
+  {% endif %}
+  <div style="height:10px"></div>
+</div>
+
+{# ── CONTENT ── #}
+<div class="page-content">
+
+  {% if tasks %}
+  <ul class="task-list">
+    {% for task in tasks %}
+    <li class="task-item" id="item-{{ task.id }}">
+      <div class="task-row">
+        <div class="chk" onclick="toggleTask('{{ task.id }}')">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+               stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1.5,5 4,7.5 8.5,2.5"/>
+          </svg>
+        </div>
+        <div class="task-body">
+          <div class="task-title">{{ task.title }}</div>
+          {% if task.notes %}
+          <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes }}</div>
+          <button class="notes-toggle" onclick="toggleNotes(this)" data-id="{{ task.id }}">▼ Ver más</button>
+          {% endif %}
+          <div class="add-note-form" id="add-note-{{ task.id }}" data-current-notes="{{ task.notes or '' }}" style="display:none">
+            <textarea class="f-textarea" id="add-note-ta-{{ task.id }}" placeholder="Escribe tu nota..." style="min-height:60px;font-size:13px;"></textarea>
+            <div class="add-note-actions">
+              <button class="btn btn-ghost" onclick="cancelAddNote('{{ task.id }}')">Cancelar</button>
+              <button class="btn btn-primary" onclick="submitAddNote('{{ task.id }}')">Guardar nota</button>
+            </div>
+          </div>
+        </div>
+        <div class="task-actions">
+          <button class="sched-btn" onclick="toggleSched('{{ task.id }}')">📅 Programar</button>
+          <button class="act-btn" onclick="showAddNote('{{ task.id }}')" title="Agregar nota">📝</button>
+          <button class="act-btn edit-btn"
+            data-id="{{ task.id }}"
+            data-title="{{ task.title }}"
+            data-notes="{{ task.notes or '' }}"
+            data-date=""
+            title="Editar">✏</button>
+          <button class="act-btn red" onclick="deleteTask('{{ task.id }}')" title="Eliminar">✕</button>
+        </div>
+      </div>
+      {# inline schedule picker #}
+      <div class="sched-area">
+        <div class="sched-row" id="sched-{{ task.id }}">
+          <input type="date" class="f-input" id="schedDate-{{ task.id }}"
+                 style="width:auto; padding:5px 8px; font-size:13px;">
+          <button class="btn btn-primary" style="padding:5px 12px; font-size:13px;"
+                  onclick="scheduleTask('{{ task.id }}')">Confirmar</button>
+          <button class="btn btn-ghost" style="padding:5px 10px; font-size:13px;"
+                  onclick="closeSched('{{ task.id }}')">✕</button>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">📭</div>
+    <div class="empty-title">Inbox vacío</div>
+    <div class="empty-text">No hay tareas sin programar. ¡Buen trabajo!</div>
+  </div>
+  {% endif %}
+
+  {# ── ADD TASK FORM ── #}
+  <div class="add-section">
+    <button class="add-btn" id="addBtn" onclick="showForm()">
+      <span class="add-plus">+</span> Agregar al Inbox
+    </button>
+    <div class="add-form" id="addForm">
+      <div class="f-group">
+        <label class="f-label">Título *</label>
+        <input type="text" class="f-input" id="nTitle" placeholder="¿Qué hay que hacer?">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Notas</label>
+        <textarea class="f-textarea" id="nNotes" placeholder="Notas opcionales..."></textarea>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Fecha (opcional — si la asignas irá directo al día)</label>
+        <input type="date" class="f-input" id="nDate">
+      </div>
+      <div class="f-actions">
+        <button class="btn btn-ghost" onclick="hideForm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="addTask()">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+// ── ADD FORM ──
+function showForm() {
+  document.getElementById('addBtn').style.display = 'none';
+  document.getElementById('addForm').classList.add('open');
+  setTimeout(() => document.getElementById('nTitle').focus(), 50);
+}
+
+function hideForm() {
+  document.getElementById('addBtn').style.display = '';
+  document.getElementById('addForm').classList.remove('open');
+  ['nTitle','nNotes','nDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+async function addTask() {
+  const title = document.getElementById('nTitle').value.trim();
+  const notes = document.getElementById('nNotes').value.trim();
+  const due_date = document.getElementById('nDate').value || null;
+  if (!title) { document.getElementById('nTitle').focus(); return; }
+
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, notes, due_date }),
+  });
+  if (r.ok) {
+    const t = await r.json();
+    if (t.due_date) window.location.href = `/day/${t.due_date}`;
+    else location.reload();
+  }
+}
+
+// ── SCHEDULE ──
+const today = new Date().toISOString().split('T')[0];
+
+function toggleSched(id) {
+  // Close all open pickers first
+  document.querySelectorAll('.sched-row.open').forEach(el => {
+    if (el.id !== `sched-${id}`) el.classList.remove('open');
+  });
+  const row = document.getElementById(`sched-${id}`);
+  row.classList.toggle('open');
+  if (row.classList.contains('open')) {
+    const inp = document.getElementById(`schedDate-${id}`);
+    inp.value = today;
+    setTimeout(() => inp.focus(), 50);
+  }
+}
+
+function closeSched(id) {
+  document.getElementById(`sched-${id}`).classList.remove('open');
+}
+
+async function scheduleTask(id) {
+  const due_date = document.getElementById(`schedDate-${id}`).value;
+  if (!due_date) { alert('Selecciona una fecha'); return; }
+
+  const r = await fetch(`/api/tasks/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ due_date }),
+  });
+  if (r.ok) window.location.href = `/day/${due_date}`;
+}
+
+// ── KEYBOARD ──
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('nTitle');
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTask(); }
+      if (e.key === 'Escape') hideForm();
+    });
+  }
+});
+{% endblock %}

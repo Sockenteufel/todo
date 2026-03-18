@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: #6366f1;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: white; font-weight: 800;
+    }
+
+    .logo-text {
+      font-size: 18px; font-weight: 700; color: #f1f5f9;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .6px;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: #f1f5f9;
+      outline: none;
+      transition: border-color .15s;
+      margin-bottom: 16px;
+    }
+
+    .form-input:focus { border-color: #6366f1; }
+    .form-input::placeholder { color: #475569; }
+
+    .btn {
+      width: 100%;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 11px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 4px;
+    }
+
+    .btn:hover { background: #4f46e5; }
+
+    .error {
+      background: #3b1f1f;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">✓</div>
+      <span class="logo-text">Mis Tareas</span>
+    </div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <label class="form-label" for="username">Usuario</label>
+      <input class="form-input" type="text" id="username" name="username"
+             autocomplete="username" autofocus required>
+
+      <label class="form-label" for="password">Contraseña</label>
+      <input class="form-input" type="password" id="password" name="password"
+             autocomplete="current-password" required>
+
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

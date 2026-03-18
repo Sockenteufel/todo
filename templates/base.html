@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TODO{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 210px;
+      --bg: #f1f5f9;
+      --sidebar-bg: #0f172a;
+      --sidebar-hover: #1e293b;
+      --sidebar-text: #94a3b8;
+      --sidebar-active-bg: #1e293b;
+      --sidebar-active-text: #f1f5f9;
+      --accent: #6366f1;
+      --accent-h: #4f46e5;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success: #10b981;
+      --danger: #ef4444;
+      --r: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 16px 16px;
+      color: #f1f5f9;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .brand-icon {
+      width: 26px; height: 26px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: white; font-weight: 800;
+    }
+
+    .nav-section { padding: 6px 0; }
+    .nav-section + .nav-section { border-top: 1px solid rgba(255,255,255,.06); }
+
+    .nav-label {
+      padding: 8px 16px 3px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,.25);
+      font-weight: 600;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      font-size: 13px;
+      transition: background .15s, color .15s;
+      border-left: 2px solid transparent;
+    }
+    .nav-link:hover {
+      background: var(--sidebar-hover);
+      color: var(--sidebar-active-text);
+    }
+    .nav-link.active {
+      background: var(--sidebar-active-bg);
+      color: var(--sidebar-active-text);
+      border-left-color: var(--accent);
+    }
+    .nav-icon { font-size: 13px; flex-shrink: 0; }
+    .nav-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--accent);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .nav-badge.dim {
+      background: rgba(255,255,255,.12);
+      color: var(--sidebar-text);
+    }
+
+    /* ── MAIN ── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-header {
+      padding: 32px 40px 0;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+      padding-bottom: 16px;
+    }
+    .page-content { padding: 0 40px 60px; }
+
+    /* ── TASK CARD ── */
+    .task-list { list-style: none; }
+
+    .task-item {
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .task-item:hover { border-color: var(--border); box-shadow: var(--shadow-lg); }
+    .task-item.done { opacity: .55; }
+
+    .task-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 11px 12px;
+      gap: 10px;
+    }
+
+    /* checkbox */
+    .chk {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .2s, background .2s;
+      background: white;
+    }
+    .chk:hover { border-color: var(--success); }
+    .task-item.done .chk { background: var(--success); border-color: var(--success); }
+    .chk svg { display: none; }
+    .task-item.done .chk svg { display: block; }
+
+    /* body */
+    .task-body { flex: 1; min-width: 0; }
+
+    .task-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .task-item.done .task-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .task-notes {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .task-notes.expanded {
+      display: block;
+      overflow: visible;
+    }
+    .notes-toggle {
+      background: none; border: none; cursor: pointer;
+      font-size: 11px; color: var(--accent); padding: 2px 0;
+      display: none; line-height: 1.4;
+    }
+    .notes-toggle:hover { text-decoration: underline; }
+    .add-note-form {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+    .add-note-actions {
+      display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px;
+    }
+
+    /* actions */
+    .task-actions {
+      display: flex; align-items: center; gap: 2px;
+      opacity: 0;
+      transition: opacity .15s;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .task-item:hover .task-actions { opacity: 1; }
+
+    .act-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 4px 5px; border-radius: 5px;
+      color: var(--muted); font-size: 13px;
+      transition: background .15s, color .15s;
+      line-height: 1;
+    }
+    .act-btn:hover { background: var(--bg); color: var(--text); }
+    .act-btn.red:hover { background: #fee2e2; color: var(--danger); }
+
+    /* ── ADD TASK ── */
+    .add-section { margin-top: 10px; }
+
+    .add-btn {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; padding: 10px 14px;
+      background: transparent;
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      color: var(--muted); cursor: pointer;
+      font-size: 14px; text-align: left;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .add-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.04); }
+    .add-plus { font-size: 20px; line-height: 1; }
+
+    .add-form {
+      display: none;
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: var(--shadow-lg);
+      border: 2px solid var(--accent);
+      padding: 14px;
+    }
+    .add-form.open { display: block; }
+
+    /* ── FORM ELEMENTS ── */
+    .f-group { margin-bottom: 10px; }
+    .f-label {
+      display: block; font-size: 10.5px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .5px;
+      color: var(--muted); margin-bottom: 4px;
+    }
+    .f-input, .f-textarea {
+      width: 100%; border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 10px;
+      font-size: 14px; font-family: inherit; color: var(--text);
+      background: white; outline: none; transition: border-color .15s;
+    }
+    .f-input:focus, .f-textarea:focus { border-color: var(--accent); }
+    .f-textarea { resize: vertical; min-height: 60px; }
+
+    .f-row { display: flex; gap: 10px; }
+    .f-row .f-group { flex: 1; }
+
+    .f-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+    .btn {
+      padding: 7px 14px; border-radius: 6px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none; transition: background .15s;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-ghost { background: var(--bg); color: var(--muted); }
+    .btn-ghost:hover { background: var(--border); color: var(--text); }
+
+    /* ── EDIT MODAL ── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: white; border-radius: 12px;
+      padding: 24px; width: 460px; max-width: 92vw;
+      box-shadow: var(--shadow-lg);
+      animation: popIn .15s ease;
+    }
+    @keyframes popIn {
+      from { transform: scale(.95); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+    /* ── MISC ── */
+    .page-title {
+      font-size: 24px; font-weight: 800;
+      letter-spacing: -.4px; color: var(--text);
+    }
+    .page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    .today-pill {
+      display: inline-block; background: var(--accent);
+      color: white; font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: .5px;
+      vertical-align: middle; margin-left: 8px;
+    }
+    .past-pill {
+      display: inline-block; background: #f1f5f9;
+      color: var(--muted); font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: .5px;
+      vertical-align: middle; margin-left: 8px;
+    }
+
+    .date-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .nav-arrow {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid var(--border); background: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 16px; line-height: 1;
+      text-decoration: none; transition: border-color .15s, color .15s;
+    }
+    .nav-arrow:hover { border-color: var(--accent); color: var(--accent); }
+    .today-link {
+      font-size: 12px; color: var(--accent); text-decoration: none;
+      padding: 3px 8px; border: 1px solid var(--accent);
+      border-radius: 5px; transition: background .15s, color .15s;
+    }
+    .today-link:hover { background: var(--accent); color: white; }
+
+    .stats { display: flex; gap: 14px; margin: 8px 0 4px; }
+    .stat { font-size: 13px; color: var(--muted); }
+    .stat strong { color: var(--text); }
+
+    .progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 14px; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--success); border-radius: 2px; transition: width .5s ease; }
+
+    .empty {
+      text-align: center; padding: 56px 20px; color: var(--muted);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .empty-text { font-size: 13px; }
+
+    .congrats {
+      text-align: center; padding: 20px;
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      border-radius: var(--r); margin-bottom: 12px;
+      border: 1px solid #6ee7b7;
+    }
+    .congrats-title { font-size: 15px; font-weight: 700; color: #065f46; }
+    .congrats-text { font-size: 13px; color: #047857; margin-top: 2px; }
+
+    /* ── SCHEDULE ── */
+    .sched-area { padding: 0 12px 10px 40px; }
+    .sched-row { display: none; align-items: center; gap: 6px; }
+    .sched-row.open { display: flex; }
+
+    .sched-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: 5px; padding: 3px 8px;
+      font-size: 11.5px; cursor: pointer; color: var(--muted);
+      transition: border-color .15s, color .15s, background .15s;
+      white-space: nowrap;
+    }
+    .sched-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.04); }
+
+    /* ── GOOGLE CALENDAR EVENTS ── */
+    .cal-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: #3b82f6; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cal-section-title::after {
+      content: ''; flex: 1; height: 1px; background: #bfdbfe;
+    }
+
+    .cal-event {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #3b82f6;
+      border-radius: var(--r);
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      transition: box-shadow .15s;
+    }
+    .cal-event:hover { box-shadow: 0 4px 12px rgba(59,130,246,.15); }
+
+    .cal-event-time {
+      font-size: 13px; font-weight: 700; color: #1d4ed8;
+      min-width: 44px; flex-shrink: 0; padding-top: 1px;
+      text-align: center;
+    }
+    .cal-event-time.allday {
+      font-size: 10px; font-weight: 600; color: #3b82f6;
+      text-transform: uppercase; letter-spacing: .4px;
+    }
+
+    .cal-event-body { flex: 1; min-width: 0; }
+    .cal-event-title {
+      font-size: 14px; font-weight: 600; color: #1e3a8a;
+      word-break: break-word;
+    }
+    .cal-event-location {
+      font-size: 12px; color: #3b82f6; margin-top: 2px;
+    }
+    .cal-event-notes {
+      font-size: 12px; color: #1d4ed8; margin-top: 3px;
+      opacity: .8; white-space: pre-wrap;
+    }
+
+    .cal-event-link {
+      flex-shrink: 0; color: #3b82f6; text-decoration: none;
+      font-size: 14px; padding: 2px 4px; border-radius: 4px;
+      opacity: 0; transition: opacity .15s, background .15s;
+    }
+    .cal-event:hover .cal-event-link { opacity: 1; }
+    .cal-event-link:hover { background: #dbeafe; }
+
+    /* ── GCAL SIDEBAR ── */
+    .gcal-status {
+      margin-top: auto;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      font-size: 12px;
+    }
+    .gcal-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; margin-right: 6px; vertical-align: middle;
+    }
+    .gcal-dot.on  { background: #10b981; }
+    .gcal-dot.off { background: #64748b; }
+    .gcal-link {
+      color: #94a3b8; text-decoration: none;
+      display: flex; align-items: center;
+      transition: color .15s;
+    }
+    .gcal-link:hover { color: #f1f5f9; }
+
+    .sidebar-logout {
+      padding: 8px 16px 16px;
+    }
+    .logout-link {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: #475569;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .logout-link:hover { color: #ef4444; }
+
+    /* ── DATE GROUP (pending / completed views) ── */
+    .group + .group { margin-top: 24px; }
+
+    .group-header {
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-label {
+      font-size: 13px; font-weight: 700; color: var(--text);
+    }
+    .group-label.today { color: var(--accent); }
+    .group-label.past  { color: var(--muted); }
+    .group-count {
+      font-size: 11.5px; color: var(--muted);
+    }
+    .group-goto {
+      margin-left: auto;
+      font-size: 11.5px; color: var(--accent);
+      text-decoration: none;
+      opacity: 0; transition: opacity .15s;
+    }
+    .group-header:hover .group-goto { opacity: 1; }
+
+    /* clickable task card */
+    .task-item.linked { cursor: pointer; }
+    .task-item.linked:hover { border-color: var(--accent); }
+    .task-item.linked:hover .task-title { color: var(--accent); }
+    .task-item.done.linked:hover .task-title { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">✓</div>
+    Mis Tareas
+  </div>
+
+  <div class="nav-section">
+    <a href="/inbox"
+       class="nav-link {% if request.path == '/inbox' %}active{% endif %}">
+      <span class="nav-icon">📥</span>
+      <span class="nav-text">Inbox</span>
+      {% if sidebar.inbox_count > 0 %}<span class="nav-badge">{{ sidebar.inbox_count }}</span>{% endif %}
+    </a>
+    <a href="/day/{{ sidebar.today }}"
+       class="nav-link {% if sidebar.current_date == sidebar.today %}active{% endif %}">
+      <span class="nav-icon">☀</span>
+      <span class="nav-text">Hoy</span>
+      {% set tp = sidebar.dates_info.get(sidebar.today, {}).get('pending', 0) %}
+      {% if tp > 0 %}<span class="nav-badge">{{ tp }}</span>{% endif %}
+    </a>
+    <a href="/pending"
+       class="nav-link {% if request.path == '/pending' %}active{% endif %}">
+      <span class="nav-icon">⏳</span>
+      <span class="nav-text">Pendientes</span>
+    </a>
+    <a href="/completed"
+       class="nav-link {% if request.path == '/completed' %}active{% endif %}">
+      <span class="nav-icon">✔</span>
+      <span class="nav-text">Completadas</span>
+    </a>
+  </div>
+
+  {% if sidebar.other_dates %}
+  <div class="nav-section">
+    <div class="nav-label">Otros días</div>
+    {% for d in sidebar.other_dates %}
+    <a href="/day/{{ d }}"
+       class="nav-link {% if sidebar.current_date == d %}active{% endif %}">
+      <span class="nav-icon">📅</span>
+      <span class="nav-text">{{ sidebar.dates_info[d].label }}</span>
+      {% set p = sidebar.dates_info[d].pending %}
+      {% if p > 0 %}<span class="nav-badge dim">{{ p }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="gcal-status">
+    {% if sidebar.gcal_connected %}
+    <a href="/auth/google/disconnect" class="gcal-link" title="Desconectar Google Calendar">
+      <span class="gcal-dot on"></span> Google Calendar
+    </a>
+    {% elif sidebar.gcal_enabled %}
+    <a href="/auth/google" class="gcal-link" title="Conectar Google Calendar">
+      <span class="gcal-dot off"></span> Conectar Calendar
+    </a>
+    {% else %}
+    <a href="/gcal/setup" class="gcal-link" title="Configurar Google Calendar">
+      <span class="gcal-dot off"></span> Configurar Calendar
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="sidebar-logout">
+    <a href="/logout" class="logout-link" title="Cerrar sesión">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Cerrar sesión
+    </a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-title">Editar tarea</div>
+    <input type="hidden" id="eId">
+    <div class="f-group">
+      <label class="f-label">Título</label>
+      <input type="text" class="f-input" id="eTitle" placeholder="Título de la tarea">
+    </div>
+    <div class="f-group">
+      <label class="f-label">Notas</label>
+      <textarea class="f-textarea" id="eNotes" placeholder="Notas opcionales..."></textarea>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Fecha (dejar vacío para mover al Inbox)</label>
+      <input type="date" class="f-input" id="eDate">
+    </div>
+    <div class="f-actions">
+      <button class="btn btn-ghost" onclick="closeEdit()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── MODAL ──
+  function openEdit(id, title, notes, due_date) {
+    document.getElementById('eId').value = id;
+    document.getElementById('eTitle').value = title;
+    document.getElementById('eNotes').value = notes || '';
+    document.getElementById('eDate').value = due_date || '';
+    document.getElementById('editOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('eTitle').focus(), 60);
+  }
+
+  function closeEdit() {
+    document.getElementById('editOverlay').classList.remove('open');
+  }
+
+  async function saveEdit() {
+    const id = document.getElementById('eId').value;
+    const title = document.getElementById('eTitle').value.trim();
+    const notes = document.getElementById('eNotes').value.trim();
+    const due_date = document.getElementById('eDate').value || null;
+
+    if (!title) { document.getElementById('eTitle').focus(); return; }
+
+    const r = await fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, notes, due_date }),
+    });
+    if (r.ok) {
+      const t = await r.json();
+      closeEdit();
+      if (t.due_date) window.location.href = `/day/${t.due_date}`;
+      else window.location.href = '/inbox';
+    }
+  }
+
+  // ── SHARED ACTIONS ──
+  async function toggleTask(id) {
+    await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' });
+    location.reload();
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('¿Eliminar esta tarea?')) return;
+    const r = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    if (r.ok) location.reload();
+  }
+
+  // ── CLOSE ON BACKDROP ──
+  document.getElementById('editOverlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeEdit();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
+
+  // Edit button via data attributes (avoids quote-escaping issues)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.edit-btn');
+    if (btn) {
+      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date);
+    }
+  });
+
+  // ── NOTES TOGGLE ──
+  function toggleNotes(btn) {
+    const notesEl = document.getElementById('notes-' + btn.dataset.id);
+    const expanded = notesEl.classList.toggle('expanded');
+    btn.textContent = expanded ? '▲ Ver menos' : '▼ Ver más';
+  }
+
+  function initNotesToggle() {
+    document.querySelectorAll('.task-notes[id]').forEach(el => {
+      if (el.scrollHeight > el.clientHeight + 2) {
+        const btn = el.nextElementSibling;
+        if (btn && btn.classList.contains('notes-toggle')) {
+          btn.style.display = 'inline-block';
+        }
+      }
+    });
+  }
+
+  // ── ADD NOTE ──
+  function showAddNote(id) {
+    document.getElementById('add-note-' + id).style.display = 'block';
+    setTimeout(() => document.getElementById('add-note-ta-' + id).focus(), 50);
+  }
+
+  function cancelAddNote(id) {
+    document.getElementById('add-note-' + id).style.display = 'none';
+    document.getElementById('add-note-ta-' + id).value = '';
+  }
+
+  function formatDateES() {
+    const d = new Date();
+    const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  async function submitAddNote(id) {
+    const ta = document.getElementById('add-note-ta-' + id);
+    const newText = ta.value.trim();
+    if (!newText) { ta.focus(); return; }
+    const form = document.getElementById('add-note-' + id);
+    const currentNotes = form.dataset.currentNotes || '';
+    const noteEntry = `--- ${formatDateES()} ---\n${newText}`;
+    const updatedNotes = currentNotes ? `${currentNotes}\n\n${noteEntry}` : noteEntry;
+    const r = await fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: updatedNotes }),
+    });
+    if (r.ok) location.reload();
+  }
+
+  document.addEventListener('DOMContentLoaded', initNotesToggle);
+</script>
+
+<script>
+{% block scripts %}{% endblock %}
+</script>
+</body>
+</html>

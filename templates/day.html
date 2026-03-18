@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}{{ date_formatted }}{% endblock %}
+
+{% block content %}
+
+{# ── HEADER ── #}
+<div class="page-header">
+  <div class="date-nav">
+    <a href="/day/{{ prev_date }}" class="nav-arrow" title="Día anterior">&#8249;</a>
+    <a href="/day/{{ next_date }}" class="nav-arrow" title="Día siguiente">&#8250;</a>
+    {% if not is_today %}
+    <a href="/day/{{ today }}" class="today-link">Ir a hoy</a>
+    {% endif %}
+  </div>
+
+  <h1 class="page-title">
+    {{ date_formatted }}
+    {% if is_today %}<span class="today-pill">Hoy</span>{% elif is_past %}<span class="past-pill">Pasado</span>{% endif %}
+  </h1>
+
+  {% set total = tasks | length %}
+  {% set done  = tasks | selectattr('completed') | list | length %}
+  {% set pend  = total - done %}
+
+  {% if total > 0 %}
+  <div class="stats">
+    <span class="stat"><strong>{{ pend }}</strong> pendiente{{ 's' if pend != 1 }}</span>
+    <span class="stat"><strong>{{ done }}</strong> completada{{ 's' if done != 1 }}</span>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar" style="width: {{ ((done / total) * 100) | round | int }}%"></div>
+  </div>
+  {% else %}
+  <div style="height:14px"></div>
+  {% endif %}
+</div>
+
+{# ── CONTENT ── #}
+<div class="page-content">
+
+  {# ── GOOGLE CALENDAR EVENTS ── #}
+  {% if cal_events %}
+  <div style="margin-bottom: 20px;">
+    <div class="cal-section-title">Reuniones del día</div>
+    {% for ev in cal_events %}
+    <div class="cal-event">
+      <div class="cal-event-time {% if ev.is_all_day %}allday{% endif %}">
+        {% if ev.is_all_day %}Todo el día{% else %}{{ ev.time }}{% endif %}
+      </div>
+      <div class="cal-event-body">
+        <div class="cal-event-title">{{ ev.title }}</div>
+        {% if ev.location %}
+        <div class="cal-event-location">📍 {{ ev.location }}</div>
+        {% endif %}
+        {% if ev.notes %}
+        <div class="cal-event-notes">{{ ev.notes }}</div>
+        {% endif %}
+      </div>
+      {% if ev.html_link %}
+      <a href="{{ ev.html_link }}" target="_blank" class="cal-event-link" title="Abrir en Google Calendar">↗</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Congrats when all done #}
+  {% if total > 0 and pend == 0 %}
+  <div class="congrats">
+    <div class="congrats-title">¡Todo listo! 🎉</div>
+    <div class="congrats-text">Completaste todas las tareas de este día.</div>
+  </div>
+  {% endif %}
+
+  {# Task list #}
+  {% if tasks %}
+  <ul class="task-list">
+    {% for task in tasks %}
+    <li class="task-item {% if task.completed %}done{% endif %}">
+      <div class="task-row">
+        <div class="chk" onclick="toggleTask('{{ task.id }}')">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+               stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1.5,5 4,7.5 8.5,2.5"/>
+          </svg>
+        </div>
+        <div class="task-body">
+          <div class="task-title">{{ task.title }}</div>
+          {% if task.notes %}
+          <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes }}</div>
+          <button class="notes-toggle" onclick="toggleNotes(this)" data-id="{{ task.id }}">▼ Ver más</button>
+          {% endif %}
+          <div class="add-note-form" id="add-note-{{ task.id }}" data-current-notes="{{ task.notes or '' }}" style="display:none">
+            <textarea class="f-textarea" id="add-note-ta-{{ task.id }}" placeholder="Escribe tu nota..." style="min-height:60px;font-size:13px;"></textarea>
+            <div class="add-note-actions">
+              <button class="btn btn-ghost" onclick="cancelAddNote('{{ task.id }}')">Cancelar</button>
+              <button class="btn btn-primary" onclick="submitAddNote('{{ task.id }}')">Guardar nota</button>
+            </div>
+          </div>
+        </div>
+        <div class="task-actions">
+          <button class="act-btn" onclick="showAddNote('{{ task.id }}')" title="Agregar nota">📝</button>
+          <button class="act-btn edit-btn"
+            data-id="{{ task.id }}"
+            data-title="{{ task.title }}"
+            data-notes="{{ task.notes or '' }}"
+            data-date="{{ task.due_date or '' }}"
+            title="Editar">✏</button>
+          <button class="act-btn red" onclick="deleteTask('{{ task.id }}')" title="Eliminar">✕</button>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">{% if is_today %}📋{% else %}📅{% endif %}</div>
+    <div class="empty-title">
+      {% if is_today %}Sin tareas por ahora{% else %}Sin tareas este día{% endif %}
+    </div>
+    <div class="empty-text">
+      {% if is_today %}Agrega una tarea abajo o programa desde el Inbox.
+      {% else %}Puedes agregar tareas o ir a otro día.{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── ADD TASK FORM ── #}
+  <div class="add-section">
+    <button class="add-btn" id="addBtn" onclick="showForm()">
+      <span class="add-plus">+</span> Agregar tarea
+    </button>
+    <div class="add-form" id="addForm">
+      <div class="f-group">
+        <label class="f-label">Título *</label>
+        <input type="text" class="f-input" id="nTitle" placeholder="¿Qué hay que hacer?">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Notas</label>
+        <textarea class="f-textarea" id="nNotes" placeholder="Notas opcionales..."></textarea>
+      </div>
+      <div class="f-actions">
+        <button class="btn btn-ghost" onclick="hideForm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="addTask()">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+const DATE_STR = '{{ date_str }}';
+
+function showForm() {
+  document.getElementById('addBtn').style.display = 'none';
+  document.getElementById('addForm').classList.add('open');
+  setTimeout(() => document.getElementById('nTitle').focus(), 50);
+}
+
+function hideForm() {
+  document.getElementById('addBtn').style.display = '';
+  document.getElementById('addForm').classList.remove('open');
+  document.getElementById('nTitle').value = '';
+  document.getElementById('nNotes').value = '';
+}
+
+async function addTask() {
+  const title = document.getElementById('nTitle').value.trim();
+  const notes = document.getElementById('nNotes').value.trim();
+  if (!title) { document.getElementById('nTitle').focus(); return; }
+
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, notes, due_date: DATE_STR }),
+  });
+  if (r.ok) location.reload();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('nTitle');
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTask(); }
+      if (e.key === 'Escape') hideForm();
+    });
+  }
+});
+{% endblock %}

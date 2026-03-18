@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Completadas{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title">✔ Completadas</h1>
+  <p class="page-sub">Todas las tareas completadas, ordenadas por fecha</p>
+  {% if total > 0 %}
+  <div class="stats" style="margin-top:8px">
+    <span class="stat"><strong>{{ total }}</strong> tarea{{ 's' if total != 1 }} completada{{ 's' if total != 1 }}</span>
+  </div>
+  {% endif %}
+  <div style="height:10px"></div>
+</div>
+
+<div class="page-content">
+
+  {% if groups %}
+    {% for group in groups %}
+    <div class="group">
+      <div class="group-header">
+        <span class="group-label {% if group.is_today %}today{% elif group.is_past %}past{% endif %}">
+          {% if group.is_today %}Hoy — {% endif %}{{ group.label }}
+        </span>
+        <span class="group-count">{{ group.tasks | length }} tarea{{ 's' if group.tasks|length != 1 }}</span>
+        {% if group.date %}
+        <a href="/day/{{ group.date }}" class="group-goto">Ver día →</a>
+        {% else %}
+        <a href="/inbox" class="group-goto">Ver inbox →</a>
+        {% endif %}
+      </div>
+
+      <ul class="task-list">
+        {% for task in group.tasks %}
+        <li class="task-item done linked"
+            data-href="{% if group.date %}/day/{{ group.date }}{% else %}/inbox{% endif %}">
+          <div class="task-row">
+            <div class="chk" onclick="event.stopPropagation(); toggleTask('{{ task.id }}')">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                   stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1.5,5 4,7.5 8.5,2.5"/>
+              </svg>
+            </div>
+            <div class="task-body">
+              <div class="task-title">{{ task.title }}</div>
+              {% if task.notes %}
+              <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes }}</div>
+              <button class="notes-toggle" onclick="event.stopPropagation(); toggleNotes(this)" data-id="{{ task.id }}">▼ Ver más</button>
+              {% endif %}
+              {% if task.completed_at %}
+              <div class="task-notes" style="margin-top:3px; font-size:11px;">
+                Completada: {{ task.completed_at[:10] }}
+              </div>
+              {% endif %}
+              <div class="add-note-form" id="add-note-{{ task.id }}" data-current-notes="{{ task.notes or '' }}" style="display:none" onclick="event.stopPropagation()">
+                <textarea class="f-textarea" id="add-note-ta-{{ task.id }}" placeholder="Escribe tu nota..." style="min-height:60px;font-size:13px;"></textarea>
+                <div class="add-note-actions">
+                  <button class="btn btn-ghost" onclick="cancelAddNote('{{ task.id }}')">Cancelar</button>
+                  <button class="btn btn-primary" onclick="submitAddNote('{{ task.id }}')">Guardar nota</button>
+                </div>
+              </div>
+            </div>
+            <div class="task-actions">
+              <button class="act-btn"
+                onclick="event.stopPropagation(); showAddNote('{{ task.id }}')"
+                title="Agregar nota">📝</button>
+              <button class="act-btn red"
+                onclick="event.stopPropagation(); deleteTask('{{ task.id }}')"
+                title="Eliminar">✕</button>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">📭</div>
+    <div class="empty-title">Sin tareas completadas</div>
+    <div class="empty-text">Cuando completes tareas aparecerán aquí.</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+// Navigate on task card click
+document.querySelectorAll('.task-item.linked').forEach(el => {
+  el.addEventListener('click', e => {
+    if (!e.target.closest('.act-btn, .chk')) {
+      window.location.href = el.dataset.href;
+    }
+  });
+});
+{% endblock %}

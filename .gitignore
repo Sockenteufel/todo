@@ -1,0 +1,12 @@
+# Datos persistentes (nunca subir al repo)
+data/
+tasks.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Docker
+*.log

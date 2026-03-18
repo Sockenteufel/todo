@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+token.json
+credentials.json
+tasks.json
+data/
+error.png
+iniciar.bat
+build_and_push.bat
