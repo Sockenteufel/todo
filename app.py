@@ -3,6 +3,7 @@
 # Abrir:       http://localhost:5000
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flasgger import Swagger
 import json
 import os
 import hmac
@@ -20,6 +21,19 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+swagger_config = {
+    'headers': [],
+    'specs': [{'endpoint': 'apispec', 'route': '/apispec.json', 'rule_filter': lambda rule: rule.rule.startswith('/api/'), 'model_filter': lambda tag: True}],
+    'static_url_path': '/flasgger_static',
+    'swagger_ui': True,
+    'specs_route': '/apidocs',
+}
+swagger_template = {
+    'info': {'title': 'Todo App API', 'version': '1.0', 'description': 'API REST de la aplicación de tareas'},
+    'securityDefinitions': {'session': {'type': 'apiKey', 'in': 'cookie', 'name': 'session'}},
+}
+Swagger(app, config=swagger_config, template=swagger_template)
 
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR  = os.path.join(BASE_DIR, 'data')
@@ -231,7 +245,7 @@ def get_sidebar_data(current_date_str=None):
 @app.before_request
 def require_login():
     """Protege todas las rutas excepto /login."""
-    if request.path == '/login':
+    if request.path in ('/login', '/apidocs', '/apispec.json') or request.path.startswith('/flasgger_static/'):
         return None
     if not session.get('logged_in'):
         if request.path.startswith('/api/'):
@@ -402,6 +416,36 @@ def completed_view():
 
 @app.route('/api/tasks', methods=['POST'])
 def create_task():
+    """
+    Crear una tarea
+    ---
+    tags: [Tareas]
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          required: [title]
+          properties:
+            title:
+              type: string
+              example: Comprar leche
+            notes:
+              type: string
+              example: Entera, no descremada
+            due_date:
+              type: string
+              format: date
+              example: "2026-03-26"
+            category:
+              type: string
+              example: uuid-de-categoria
+    responses:
+      201:
+        description: Tarea creada
+      400:
+        description: Título requerido
+    """
     data = load_data()
     req = request.get_json(force=True)
     title = (req.get('title') or '').strip()
@@ -425,6 +469,37 @@ def create_task():
 
 @app.route('/api/tasks/<task_id>', methods=['PUT'])
 def update_task(task_id):
+    """
+    Actualizar una tarea
+    ---
+    tags: [Tareas]
+    parameters:
+      - in: path
+        name: task_id
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            title:
+              type: string
+            notes:
+              type: string
+            due_date:
+              type: string
+              format: date
+            category:
+              type: string
+            completed:
+              type: boolean
+    responses:
+      200:
+        description: Tarea actualizada
+      404:
+        description: Tarea no encontrada
+    """
     data = load_data()
     for task in data['tasks']:
         if task['id'] == task_id:
@@ -449,6 +524,21 @@ def update_task(task_id):
 
 @app.route('/api/tasks/<task_id>/toggle', methods=['POST'])
 def toggle_task(task_id):
+    """
+    Alternar estado completado de una tarea
+    ---
+    tags: [Tareas]
+    parameters:
+      - in: path
+        name: task_id
+        required: true
+        type: string
+    responses:
+      200:
+        description: Tarea actualizada
+      404:
+        description: Tarea no encontrada
+    """
     data = load_data()
     for task in data['tasks']:
         if task['id'] == task_id:
@@ -463,6 +553,21 @@ def toggle_task(task_id):
 
 @app.route('/api/tasks/<task_id>', methods=['DELETE'])
 def delete_task(task_id):
+    """
+    Eliminar una tarea
+    ---
+    tags: [Tareas]
+    parameters:
+      - in: path
+        name: task_id
+        required: true
+        type: string
+    responses:
+      200:
+        description: Tarea eliminada
+      404:
+        description: Tarea no encontrada
+    """
     data = load_data()
     before = len(data['tasks'])
     data['tasks'] = [t for t in data['tasks'] if t['id'] != task_id]
@@ -474,12 +579,43 @@ def delete_task(task_id):
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
+    """
+    Listar categorías
+    ---
+    tags: [Categorías]
+    responses:
+      200:
+        description: Lista de categorías
+    """
     data = load_data()
     return jsonify(data.get('categories', []))
 
 
 @app.route('/api/categories', methods=['POST'])
 def create_category():
+    """
+    Crear una categoría
+    ---
+    tags: [Categorías]
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          required: [name]
+          properties:
+            name:
+              type: string
+              example: Trabajo
+            color:
+              type: string
+              example: "#6366f1"
+    responses:
+      201:
+        description: Categoría creada
+      400:
+        description: Nombre requerido
+    """
     data = load_data()
     req = request.get_json(force=True)
     name = (req.get('name') or '').strip()
@@ -494,6 +630,30 @@ def create_category():
 
 @app.route('/api/categories/<cat_id>', methods=['PUT'])
 def update_category(cat_id):
+    """
+    Actualizar una categoría
+    ---
+    tags: [Categorías]
+    parameters:
+      - in: path
+        name: cat_id
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            name:
+              type: string
+            color:
+              type: string
+    responses:
+      200:
+        description: Categoría actualizada
+      404:
+        description: Categoría no encontrada
+    """
     data = load_data()
     for cat in data.get('categories', []):
         if cat['id'] == cat_id:
@@ -509,6 +669,21 @@ def update_category(cat_id):
 
 @app.route('/api/categories/<cat_id>', methods=['DELETE'])
 def delete_category(cat_id):
+    """
+    Eliminar una categoría
+    ---
+    tags: [Categorías]
+    parameters:
+      - in: path
+        name: cat_id
+        required: true
+        type: string
+    responses:
+      200:
+        description: Categoría eliminada
+      404:
+        description: Categoría no encontrada
+    """
     data = load_data()
     before = len(data.get('categories', []))
     data['categories'] = [c for c in data.get('categories', []) if c['id'] != cat_id]
