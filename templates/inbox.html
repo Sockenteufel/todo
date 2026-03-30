@@ -56,6 +56,7 @@
             data-notes="{{ task.notes or '' }}"
             data-date=""
             data-category="{{ task.category or '' }}"
+            data-created="{{ task.created_at or '' }}"
             title="Editar">✏</button>
           <button class="act-btn red" onclick="deleteTask('{{ task.id }}')" title="Eliminar">✕</button>
         </div>

@@ -70,6 +70,7 @@
                 data-notes="{{ task.notes or '' }}"
                 data-date="{{ task.due_date or '' }}"
                 data-category="{{ task.category or '' }}"
+                data-created="{{ task.created_at or '' }}"
                 onclick="event.stopPropagation()"
                 title="Editar">✏</button>
               <button class="act-btn red"

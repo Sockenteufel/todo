@@ -26,6 +26,7 @@ Single-file Flask backend (`app.py`) + Jinja2 templates. No frontend framework �
 - `GET /inbox` → tasks where `due_date` is null and `completed` is false
 - `GET /pending` → all incomplete tasks grouped by date, ascending
 - `GET /completed` → all completed tasks grouped by date, ascending
+- `GET /apidocs` → Swagger UI (no login required)
 - `GET /gcal/setup` → Google Calendar setup instructions page
 - `GET /auth/google` · `GET /auth/google/callback` · `GET /auth/google/disconnect` → OAuth web flow
 - `GET /login` · `POST /login` · `GET /logout` → session auth
@@ -41,7 +42,7 @@ Single-file Flask backend (`app.py`) + Jinja2 templates. No frontend framework �
 
 `base.html` contains all CSS, the sidebar, the edit modal, and shared JS functions (`openEdit`, `closeEdit`, `saveEdit`, `toggleTask`, `deleteTask`). Child templates extend it via `{% block content %}` and add page-specific JS inside `{% block scripts %}`, which is wrapped in `<script>` tags in `base.html`.
 
-Edit buttons use `data-*` attributes (`data-id`, `data-title`, `data-notes`, `data-date`) — never inline `onclick` with `tojson` — to avoid HTML attribute quote-escaping bugs.
+Edit buttons use `data-*` attributes (`data-id`, `data-title`, `data-notes`, `data-date`, `data-category`, `data-created`) — never inline `onclick` with `tojson` — to avoid HTML attribute quote-escaping bugs. `data-created` holds the ISO `created_at` timestamp and is displayed read-only in the modal; it is never sent in PUT requests.
 
 **Sidebar state:** `get_sidebar_data(current_date_str)` passes `sidebar.current_date` (None for non-day views, date string for day view) to templates. Active nav link uses `request.path` for static routes (`/inbox`, `/pending`, `/completed`) and `sidebar.current_date == d` for date-based links. Sidebar order: Inbox → Hoy → Pendientes → Completadas → Otros días → Google Calendar status → Cerrar sesión (bottom).
 
@@ -49,7 +50,7 @@ Edit buttons use `data-*` attributes (`data-id`, `data-title`, `data-notes`, `da
 
 ## Authentication
 
-All routes except `/login` are protected by a `before_request` hook. API routes (`/api/*`) return `401 JSON` when unauthenticated instead of redirecting. Sessions last 8 hours (`app.permanent_session_lifetime`). Password comparison uses `hmac.compare_digest` to prevent timing attacks.
+All routes except `/login`, `/apidocs`, `/apispec.json`, and `/flasgger_static/*` are protected by a `before_request` hook. API routes (`/api/*`) return `401 JSON` when unauthenticated instead of redirecting. Sessions last 8 hours (`app.permanent_session_lifetime`). Password comparison uses `hmac.compare_digest` to prevent timing attacks.
 
 Credentials come from environment variables `APP_USERNAME` and `APP_PASSWORD`.
 

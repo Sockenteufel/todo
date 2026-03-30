@@ -657,6 +657,10 @@
         </select>
       </div>
     </div>
+    <div class="f-group" style="margin-top:4px">
+      <label class="f-label" style="font-size:10px;opacity:0.5">Creada</label>
+      <div id="eCreatedAt" style="font-size:12px;color:var(--text-muted);padding:4px 0"></div>
+    </div>
     <div class="f-actions">
       <button class="btn btn-ghost" onclick="closeEdit()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEdit()">Guardar cambios</button>
@@ -765,12 +769,19 @@
   }
 
   // ── MODAL ──
-  function openEdit(id, title, notes, due_date, category) {
+  function openEdit(id, title, notes, due_date, category, created_at) {
     document.getElementById('eId').value = id;
     document.getElementById('eTitle').value = title;
     document.getElementById('eNotes').value = notes || '';
     document.getElementById('eDate').value = due_date || '';
     document.getElementById('eCat').value = category || '';
+    const createdEl = document.getElementById('eCreatedAt');
+    if (created_at) {
+      const d = new Date(created_at);
+      createdEl.textContent = d.toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+    } else {
+      createdEl.textContent = '—';
+    }
     document.getElementById('editOverlay').classList.add('open');
     setTimeout(() => document.getElementById('eTitle').focus(), 60);
   }
@@ -826,7 +837,7 @@
   document.addEventListener('click', e => {
     const btn = e.target.closest('.edit-btn');
     if (btn) {
-      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date, btn.dataset.category);
+      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date, btn.dataset.category, btn.dataset.created);
     }
   });
 
