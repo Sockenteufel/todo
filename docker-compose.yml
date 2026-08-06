@@ -9,8 +9,13 @@ services:
       # Credenciales de acceso a la app
       - APP_USERNAME=Admin
       - APP_PASSWORD=cambia-esto-por-tu-password
-      # Clave secreta para sesiones Flask — cambia este valor
-      - SECRET_KEY=Tr3sv3c3ss0p0rt3.
+      # Clave secreta para firmar las sesiones de Flask. NO dejar este valor de
+      # ejemplo ni subir la clave real al repositorio: quien la conozca puede
+      # falsificar una cookie de sesion y entrar sin contrasena.
+      # Generar una con: python -c "import secrets; print(secrets.token_hex(32))"
+      # Tampoco borrar la variable: sin ella cada worker de gunicorn arranca con
+      # una clave aleatoria distinta y las sesiones dejan de validarse.
+      - SECRET_KEY=pon-aqui-una-clave-aleatoria-larga
       # URL base del servidor — necesaria para el callback de Google OAuth
       - BASE_URL=http://IP-DEL-SERVIDOR:5000
       # Permite OAuth sobre HTTP (sin HTTPS) — OK para red local
