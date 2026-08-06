@@ -50,10 +50,10 @@
       <div class="cal-event-body">
         <div class="cal-event-title">{{ ev.title }}</div>
         {% if ev.location %}
-        <div class="cal-event-location">📍 {{ ev.location }}</div>
+        <div class="cal-event-location">📍 {{ ev.location | linkify }}</div>
         {% endif %}
         {% if ev.notes %}
-        <div class="cal-event-notes">{{ ev.notes }}</div>
+        <div class="cal-event-notes">{{ ev.notes | linkify }}</div>
         {% endif %}
       </div>
       {% if ev.html_link %}
@@ -86,12 +86,25 @@
         </div>
         <div class="task-body">
           <div class="task-title">
-            {{ task.title }}
+            {{ task.title | linkify }}
             {% set cat = sidebar.categories | selectattr('id', 'equalto', task.category) | first | default(none) %}
             {% if cat %}<span class="cat-badge" style="--cat-color:{{ cat.color }}">{{ cat.name }}</span>{% endif %}
+            {% if sidebar.obsidian_enabled and not task.obsidian_note %}
+            {% set opath = obsidian_target(task.title, cat.name if cat else None) %}
+            <button class="obs-btn" data-id="{{ task.id }}" data-path="{{ opath }}"
+                    data-uri="{{ obsidian_uri('new', opath) }}"
+                    data-open="{{ obsidian_uri('open', opath) }}"
+                    title="Crear nota en Obsidian: {{ opath }}">◈</button>
+            {% endif %}
           </div>
+          {% if sidebar.obsidian_enabled and task.obsidian_note %}
+          <div>
+            <a class="obs-link" href="{{ obsidian_uri('open', task.obsidian_note) }}"
+               title="Abrir {{ task.obsidian_note }} en Obsidian">◈ Nota en Obsidian</a>
+          </div>
+          {% endif %}
           {% if task.notes %}
-          <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes }}</div>
+          <div class="task-notes" id="notes-{{ task.id }}">{{ task.notes | linkify }}</div>
           <button class="notes-toggle" onclick="toggleNotes(this)" data-id="{{ task.id }}">▼ Ver más</button>
           {% endif %}
           <div class="add-note-form" id="add-note-{{ task.id }}" data-current-notes="{{ task.notes or '' }}" style="display:none">
@@ -111,6 +124,7 @@
             data-date="{{ task.due_date or '' }}"
             data-category="{{ task.category or '' }}"
             data-created="{{ task.created_at or '' }}"
+            data-obsidian="{{ task.obsidian_note or '' }}"
             title="Editar">✏</button>
           <button class="act-btn red" onclick="deleteTask('{{ task.id }}')" title="Eliminar">✕</button>
         </div>

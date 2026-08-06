@@ -4,10 +4,13 @@
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flasgger import Swagger
+from markupsafe import Markup, escape
 import json
 import os
+import re
 import hmac
 from datetime import datetime, date, timedelta
+from urllib.parse import quote
 import uuid
 
 try:
@@ -19,8 +22,13 @@ try:
 except ImportError:
     GOOGLE_LIBS = False
 
+# Version del aplicativo: se muestra en el sidebar para poder verificar de un
+# vistazo que imagen esta desplegada. Subirla al construir una imagen nueva.
+APP_VERSION = '1.6.1'
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+app.jinja_env.globals['app_version'] = APP_VERSION
 
 swagger_config = {
     'headers': [],
@@ -30,7 +38,7 @@ swagger_config = {
     'specs_route': '/apidocs',
 }
 swagger_template = {
-    'info': {'title': 'Todo App API', 'version': '1.0', 'description': 'API REST de la aplicación de tareas'},
+    'info': {'title': 'Todo App API', 'version': APP_VERSION, 'description': 'API REST de la aplicación de tareas'},
     'securityDefinitions': {'session': {'type': 'apiKey', 'in': 'cookie', 'name': 'session'}},
 }
 Swagger(app, config=swagger_config, template=swagger_template)
@@ -45,9 +53,17 @@ TOKEN_FILE       = os.path.join(DATA_DIR, 'token.json')
 BASE_URL         = os.environ.get('BASE_URL', '').rstrip('/')
 APP_USERNAME     = os.environ.get('APP_USERNAME', 'admin')
 APP_PASSWORD     = os.environ.get('APP_PASSWORD', 'changeme')
+OBSIDIAN_VAULT   = os.environ.get('OBSIDIAN_VAULT', '').strip()
 
 # Crear directorio de datos si no existe
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# Log al arrancar: sin OBSIDIAN_VAULT la integracion se oculta entera y no habria
+# forma de saber por que faltan los botones (visible en los logs de Portainer).
+if OBSIDIAN_VAULT:
+    print(f"[Obsidian] Integracion activa. Vault: {OBSIDIAN_VAULT}")
+else:
+    print("[Obsidian] Integracion desactivada: falta la variable de entorno OBSIDIAN_VAULT")
 
 app.permanent_session_lifetime = timedelta(hours=8)
 
@@ -90,6 +106,137 @@ def format_date_short(date_str, today_str):
             return f"{d.day:02d}/{d.month:02d}/{str(d.year)[2:]}"
     except Exception:
         return date_str
+
+
+# Esquemas de aplicaciones locales que se permiten enlazar. Es una lista blanca
+# a proposito: aceptar cualquier esquema dejaria pasar javascript: o data: en el
+# href. Para soportar otra app, basta con anadir su esquema aqui.
+_APP_SCHEMES = (
+    'obsidian',        # obsidian://open?vault=Boveda&file=Nota
+    'vscode', 'vscode-insiders',
+    'notion',
+    'slack',
+    'msteams', 'zoommtg',
+    'spotify',
+    'figma',
+    'discord',
+    'steam',
+    'onenote',
+)
+# Esquemas sin "//" despues de los dos puntos
+_FLAT_SCHEMES = ('mailto', 'tel')
+
+_APP_ALT  = '|'.join(re.escape(s) for s in _APP_SCHEMES)
+_FLAT_ALT = '|'.join(re.escape(s) for s in _FLAT_SCHEMES)
+
+# URLs web, esquemas de aplicaciones locales y dominios sueltos tipo "www.ejemplo.com"
+_URL_RE = re.compile(
+    r'(?:https?://[^\s<]+'
+    rf'|(?:{_APP_ALT})://[^\s<]+'
+    rf'|(?:{_FLAT_ALT}):[^\s<]+'
+    r'|www\.[^\s<]+)',
+    re.IGNORECASE,
+)
+# Puntuacion final que casi nunca forma parte de la URL real
+_URL_TRAIL = '.,;:!?)]}\'"'
+
+
+@app.template_filter('linkify')
+def linkify(text):
+    """Convierte las URLs de un texto plano en enlaces clicables.
+
+    Recorre el texto crudo y escapa cada trozo por separado, de modo que el
+    HTML que venga en el texto del usuario nunca se interpreta: las unicas
+    etiquetas del resultado son las <a> que genera esta funcion.
+    """
+    if not text:
+        return ''
+
+    out = []
+    pos = 0
+    for match in _URL_RE.finditer(text):
+        out.append(str(escape(text[pos:match.start()])))
+        pos = match.end()
+
+        url, trail = match.group(0), ''
+        # Devolver la puntuacion final al texto en vez de meterla en el enlace
+        while url and url[-1] in _URL_TRAIL:
+            # Un parentesis de cierre es parte de la URL mientras quede balanceado
+            if url[-1] == ')' and url.count(')') <= url.count('('):
+                break
+            trail = url[-1] + trail
+            url = url[:-1]
+
+        if not url:
+            out.append(str(escape(match.group(0))))
+            continue
+
+        # El regex solo acepta http/https, www. o los esquemas de _APP_SCHEMES /
+        # _FLAT_SCHEMES, asi que el esquema final nunca puede ser javascript:
+        low = url.lower()
+        if low.startswith(('http://', 'https://')):
+            href, is_web = url, True
+        elif low.startswith('www.'):
+            href, is_web = 'http://' + url, True
+        else:
+            # Enlace a una app local: lo abre el sistema operativo, no el
+            # navegador. Con target="_blank" quedaria una pestana vacia abierta.
+            href, is_web = url, False
+
+        if is_web:
+            attrs = ' class="auto-link" target="_blank" rel="noopener noreferrer"'
+        else:
+            attrs = (' class="auto-link app-link"'
+                     ' title="Abre una aplicacion instalada en este equipo"')
+        out.append(f'<a href="{escape(href)}"{attrs}>{escape(url)}</a>{escape(trail)}')
+
+    out.append(str(escape(text[pos:])))
+    return Markup(''.join(out))
+
+
+# ─────────────────────────────────────────────
+# Obsidian
+# ─────────────────────────────────────────────
+
+# Caracteres prohibidos en nombres de archivo de Windows/macOS mas los que
+# Obsidian usa para su sintaxis de enlaces ([[nota]], ^bloque, #encabezado).
+_OBSIDIAN_BAD = re.compile(r'[\\/:*?"<>|#^\[\]]')
+
+
+def obsidian_safe(name):
+    """Convierte un texto en un nombre valido de nota/carpeta de Obsidian."""
+    clean = _OBSIDIAN_BAD.sub('-', name or '')
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    # Windows no admite nombres terminados en punto o espacio
+    clean = clean.rstrip('. ')
+    return clean[:100].rstrip('. ')
+
+
+def obsidian_target(title, cat_name=None):
+    """Ruta destino dentro del vault: '<Categoria>/<Titulo>' (sin extension)."""
+    note = obsidian_safe(title) or 'Nota sin titulo'
+    folder = obsidian_safe(cat_name) if cat_name else ''
+    return f"{folder}/{note}" if folder else note
+
+
+def obsidian_uri(action, path):
+    """URI obsidian:// para crear ('new') o abrir ('open') una nota.
+
+    'new' va con append=true a proposito: si la nota ya existe la abre sin
+    tocarla, en vez de crear una copia numerada cuyo nombre ya no coincidiria
+    con la ruta que guardamos en la tarea.
+    """
+    params = {'file': path}
+    if OBSIDIAN_VAULT:
+        params['vault'] = OBSIDIAN_VAULT
+    if action == 'new':
+        params['append'] = 'true'
+    query = '&'.join(f"{k}={quote(v, safe='')}" for k, v in params.items())
+    return f"obsidian://{action}?{query}"
+
+
+app.jinja_env.globals['obsidian_target'] = obsidian_target
+app.jinja_env.globals['obsidian_uri'] = obsidian_uri
 
 
 def load_data():
@@ -235,6 +382,8 @@ def get_sidebar_data(current_date_str=None):
         'gcal_enabled': os.path.exists(CREDENTIALS_FILE),
         'gcal_connected': os.path.exists(CREDENTIALS_FILE) and os.path.exists(TOKEN_FILE),
         'categories': data.get('categories', []),
+        'obsidian_enabled': bool(OBSIDIAN_VAULT),
+        'obsidian_vault': OBSIDIAN_VAULT,
     }
 
 
@@ -461,6 +610,7 @@ def create_task():
         'completed': False,
         'created_at': datetime.now().isoformat(),
         'completed_at': None,
+        'obsidian_note': None,
     }
     data['tasks'].append(task)
     save_data(data)
@@ -494,6 +644,10 @@ def update_task(task_id):
               type: string
             completed:
               type: boolean
+            obsidian_note:
+              type: string
+              description: Ruta de la nota dentro del vault de Obsidian (null para desvincular)
+              example: Trabajo/Comprar leche
     responses:
       200:
         description: Tarea actualizada
@@ -512,6 +666,8 @@ def update_task(task_id):
                 task['due_date'] = req['due_date'] or None
             if 'category' in req:
                 task['category'] = req['category'] or None
+            if 'obsidian_note' in req:
+                task['obsidian_note'] = (req['obsidian_note'] or '').strip() or None
             if 'completed' in req:
                 task['completed'] = bool(req['completed'])
                 task['completed_at'] = (

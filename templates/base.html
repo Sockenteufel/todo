@@ -23,6 +23,7 @@
       --border: #e2e8f0;
       --success: #10b981;
       --danger: #ef4444;
+      --obsidian: #7c3aed;
       --r: 8px;
       --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
       --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
@@ -206,6 +207,31 @@
       display: block;
       overflow: visible;
     }
+    /* Enlaces detectados automaticamente en titulos y notas */
+    .auto-link {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+      word-break: break-all;
+    }
+    .auto-link:hover {
+      text-decoration: none;
+      border-bottom-color: var(--accent);
+    }
+    .task-item.done .auto-link { color: var(--muted); }
+
+    /* Enlaces a apps locales (obsidian://, vscode://…): subrayado punteado
+       porque solo funcionan si la app esta instalada en ese equipo */
+    .auto-link.app-link {
+      border-bottom-style: dotted;
+    }
+    .auto-link.app-link::before {
+      content: "⧉";
+      font-size: .85em;
+      margin-right: 3px;
+      opacity: .75;
+    }
+
     .notes-toggle {
       background: none; border: none; cursor: pointer;
       font-size: 11px; color: var(--accent); padding: 2px 0;
@@ -466,6 +492,17 @@
     }
     .gcal-link:hover { color: #f1f5f9; }
 
+    /* Estado de Obsidian: sin margin-top:auto, va pegado al de Calendar */
+    .obs-status {
+      display: flex; align-items: center;
+      padding: 0 16px 12px;
+      font-size: 12px; color: #94a3b8;
+    }
+    .obs-status-text {
+      min-width: 0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
     .sidebar-logout {
       padding: 8px 16px 16px;
     }
@@ -476,6 +513,15 @@
       transition: color .15s;
     }
     .logout-link:hover { color: #ef4444; }
+
+    /* Version de la imagen desplegada */
+    .app-version {
+      margin-top: 8px;
+      font-size: 10px;
+      letter-spacing: .5px;
+      color: rgba(255,255,255,.22);
+      user-select: text;
+    }
 
     /* ── DATE GROUP (pending / completed views) ── */
     .group + .group { margin-top: 24px; }
@@ -525,6 +571,40 @@
       flex-shrink: 0;
       opacity: 0.85;
     }
+
+    /* ── OBSIDIAN ── */
+    /* Boton "crear nota", a la derecha del titulo.
+       Siempre visible (atenuado): con opacity:0 + hover era invisible en la
+       captura y directamente inalcanzable en pantallas tactiles. */
+    .obs-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--obsidian); font-size: 12px; line-height: 1;
+      padding: 2px 5px; border-radius: 4px;
+      margin-left: 4px; vertical-align: middle;
+      opacity: .45;
+      transition: opacity .15s, background .15s;
+    }
+    .task-item:hover .obs-btn { opacity: .8; }
+    .obs-btn:hover {
+      opacity: 1;
+      background: color-mix(in srgb, var(--obsidian) 12%, transparent);
+    }
+
+    /* Enlace "Nota en Obsidian", debajo del titulo */
+    .obs-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 4px;
+      font-size: 11px; font-weight: 600;
+      color: var(--obsidian); text-decoration: none;
+      border: 1px solid color-mix(in srgb, var(--obsidian) 35%, transparent);
+      border-radius: 5px; padding: 2px 8px;
+      transition: background .15s, border-color .15s;
+    }
+    .obs-link:hover {
+      background: color-mix(in srgb, var(--obsidian) 8%, transparent);
+      border-color: var(--obsidian);
+    }
+    .task-item.done .obs-link { filter: grayscale(.65); }
 
     /* ── CATEGORY MANAGEMENT MODAL ── */
     .cat-list-item {
@@ -611,6 +691,16 @@
     {% endif %}
   </div>
 
+  <div class="obs-status">
+    {% if sidebar.obsidian_enabled %}
+    <span class="gcal-dot on"></span>
+    <span class="obs-status-text" title="Vault de Obsidian: {{ sidebar.obsidian_vault }}">Obsidian: {{ sidebar.obsidian_vault }}</span>
+    {% else %}
+    <span class="gcal-dot off"></span>
+    <span class="obs-status-text" title="Definí la variable de entorno OBSIDIAN_VAULT para activar los botones de notas">Obsidian sin configurar</span>
+    {% endif %}
+  </div>
+
   <div class="sidebar-logout">
     <a href="/logout" class="logout-link" title="Cerrar sesión">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -621,6 +711,7 @@
       </svg>
       Cerrar sesión
     </a>
+    <div class="app-version" title="Versión desplegada">v{{ app_version }}</div>
   </div>
 </nav>
 
@@ -655,6 +746,14 @@
         <select class="f-input cat-select" id="eCat">
           <option value="">Sin categoría</option>
         </select>
+      </div>
+    </div>
+    <div class="f-group" id="eObsGroup" style="margin-top:4px;display:none">
+      <label class="f-label" style="font-size:10px;opacity:0.5">Nota en Obsidian</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:2px 0">
+        <span id="eObsPath" style="flex:1;min-width:0;font-size:12px;color:var(--obsidian);word-break:break-all"></span>
+        <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px"
+                onclick="unlinkObsidianNote()">Desvincular</button>
       </div>
     </div>
     <div class="f-group" style="margin-top:4px">
@@ -768,13 +867,60 @@
     }
   }
 
+  // ── OBSIDIAN ──
+  // El navegador no puede saber si Obsidian creo la nota: no hay callback desde
+  // el esquema obsidian://. Guardamos la ruta de forma optimista al hacer click.
+  // Si algo fallo, el enlace "Nota en Obsidian" usa new?append=true, que crea la
+  // nota si no existiera, y siempre se puede desvincular desde el modal.
+  async function createObsidianNote(btn) {
+    const { id, path, uri, open } = btn.dataset;
+    // El handoff al SO tiene que dispararse dentro del gesto del usuario.
+    // No recargamos despues: el reload cancelaria el dialogo "¿Abrir Obsidian?".
+    window.location.href = uri;
+
+    const r = await fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ obsidian_note: path }),
+    });
+    if (!r.ok) return;
+
+    const titleEl = btn.closest('.task-title');
+    const item = btn.closest('.task-item');
+    btn.remove();
+
+    const link = document.createElement('a');
+    link.className = 'obs-link';
+    link.href = open;
+    link.title = `Abrir ${path} en Obsidian`;
+    link.textContent = '◈ Nota en Obsidian';
+    const wrap = document.createElement('div');
+    wrap.appendChild(link);
+    titleEl.after(wrap);
+
+    const edit = item && item.querySelector('.edit-btn');
+    if (edit) edit.dataset.obsidian = path;
+  }
+
+  async function unlinkObsidianNote() {
+    if (!confirm('¿Desvincular la nota de Obsidian?\n\nLa nota NO se elimina del vault, solo se quita el enlace desde esta tarea.')) return;
+    const r = await fetch(`/api/tasks/${document.getElementById('eId').value}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ obsidian_note: null }),
+    });
+    if (r.ok) location.reload();
+  }
+
   // ── MODAL ──
-  function openEdit(id, title, notes, due_date, category, created_at) {
+  function openEdit(id, title, notes, due_date, category, created_at, obsidian_note) {
     document.getElementById('eId').value = id;
     document.getElementById('eTitle').value = title;
     document.getElementById('eNotes').value = notes || '';
     document.getElementById('eDate').value = due_date || '';
     document.getElementById('eCat').value = category || '';
+    document.getElementById('eObsGroup').style.display = obsidian_note ? '' : 'none';
+    document.getElementById('eObsPath').textContent = obsidian_note || '';
     const createdEl = document.getElementById('eCreatedAt');
     if (created_at) {
       const d = new Date(created_at);
@@ -837,8 +983,10 @@
   document.addEventListener('click', e => {
     const btn = e.target.closest('.edit-btn');
     if (btn) {
-      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date, btn.dataset.category, btn.dataset.created);
+      openEdit(btn.dataset.id, btn.dataset.title, btn.dataset.notes, btn.dataset.date, btn.dataset.category, btn.dataset.created, btn.dataset.obsidian);
     }
+    const obs = e.target.closest('.obs-btn');
+    if (obs) createObsidianNote(obs);
   });
 
   // ── NOTES TOGGLE ──

@@ -32,7 +32,7 @@ Single-file Flask backend (`app.py`) + Jinja2 templates. No frontend framework �
 - `GET /login` · `POST /login` · `GET /logout` → session auth
 - `POST /api/tasks` · `PUT /api/tasks/<id>` · `DELETE /api/tasks/<id>` · `POST /api/tasks/<id>/toggle` → JSON API consumed by frontend JS
 
-**Task schema** (fields in `tasks.json`): `id`, `title`, `notes`, `due_date` (ISO string or null), `category` (category id or null), `completed` (bool), `created_at`, `completed_at`
+**Task schema** (fields in `tasks.json`): `id`, `title`, `notes`, `due_date` (ISO string or null), `category` (category id or null), `completed` (bool), `created_at`, `completed_at`, `obsidian_note` (vault-relative note path or null)
 
 **Category schema** (stored in `tasks.json` under `categories`): `id`, `name`, `color` (hex string)
 
@@ -42,7 +42,9 @@ Single-file Flask backend (`app.py`) + Jinja2 templates. No frontend framework �
 
 `base.html` contains all CSS, the sidebar, the edit modal, and shared JS functions (`openEdit`, `closeEdit`, `saveEdit`, `toggleTask`, `deleteTask`). Child templates extend it via `{% block content %}` and add page-specific JS inside `{% block scripts %}`, which is wrapped in `<script>` tags in `base.html`.
 
-Edit buttons use `data-*` attributes (`data-id`, `data-title`, `data-notes`, `data-date`, `data-category`, `data-created`) — never inline `onclick` with `tojson` — to avoid HTML attribute quote-escaping bugs. `data-created` holds the ISO `created_at` timestamp and is displayed read-only in the modal; it is never sent in PUT requests.
+Edit buttons use `data-*` attributes (`data-id`, `data-title`, `data-notes`, `data-date`, `data-category`, `data-created`, `data-obsidian`) — never inline `onclick` with `tojson` — to avoid HTML attribute quote-escaping bugs. `data-created` holds the ISO `created_at` timestamp and is displayed read-only in the modal; it is never sent in PUT requests. `data-obsidian` holds `obsidian_note` and drives the "Desvincular" row in the modal.
+
+**Version:** `APP_VERSION` in `app.py` is the single source of truth. It is injected as the Jinja global `app_version` (rendered at the bottom of the sidebar, under "Cerrar sesión", to confirm which image is deployed) and used as the Swagger `info.version`. Bump it in the same commit as any new Docker image tag.
 
 **Sidebar state:** `get_sidebar_data(current_date_str)` passes `sidebar.current_date` (None for non-day views, date string for day view) to templates. Active nav link uses `request.path` for static routes (`/inbox`, `/pending`, `/completed`) and `sidebar.current_date == d` for date-based links. Sidebar order: Inbox → Hoy → Pendientes → Completadas → Otros días → Google Calendar status → Cerrar sesión (bottom).
 
@@ -73,6 +75,19 @@ Optional — only activates when `data/credentials.json` is present. Uses web-ba
 - Events render in `day.html` as blue cards above the task list; read-only
 - `sidebar.gcal_connected` / `sidebar.gcal_enabled` control the sidebar status indicator
 
+## Obsidian integration
+
+Optional — only activates when the `OBSIDIAN_VAULT` env var is set; otherwise `sidebar.obsidian_enabled` is false and no UI renders. Entirely client-side: the browser hands `obsidian://` URIs to the OS, so Obsidian must be installed on the *viewing* device, not on the server.
+
+- `obsidian_safe(name)` — strips `\ / : * ? " < > | # ^ [ ]`, collapses whitespace, trims trailing dots/spaces (Windows), caps at 100 chars
+- `obsidian_target(title, cat_name)` — builds the vault-relative path `<Categoría>/<Título>`; tasks with no category land at the vault root
+- `obsidian_uri(action, path)` — `'new'` or `'open'`. `new` always adds `append=true`: with a bare `new`, Obsidian creates a numbered copy when the note exists and the stored path would no longer match
+- Both are registered as Jinja globals, so templates build the URIs; JS only reads them from `data-uri` / `data-open`
+
+**Flow:** the `◈` button right of the task title fires the `new` URI, then `PUT /api/tasks/<id>` stores `obsidian_note` and JS inserts the "Nota en Obsidian" link below the title (no reload — a reload would cancel the browser's "Open Obsidian?" dialog). There is **no callback from the URI scheme**, so creation is recorded optimistically; unlink from the edit modal (`PUT` with `obsidian_note: null`). Renaming a task does not rename the note — the stored path is what stays authoritative.
+
+In `pending.html` / `completed.html` the whole card is clickable, so `.obs-btn` is in the exclusion selector of the card's click handler.
+
 ## Environment variables
 
 Set in `docker-compose.yml`:
@@ -84,6 +99,7 @@ Set in `docker-compose.yml`:
 | `SECRET_KEY` | Flask session signing key |
 | `BASE_URL` | Full server URL e.g. `http://192.168.0.35:5000` — required for Google OAuth callback |
 | `OAUTHLIB_INSECURE_TRANSPORT` | Set to `1` to allow OAuth over HTTP (omit when using HTTPS) |
+| `OBSIDIAN_VAULT` | Obsidian vault name — enables the Obsidian buttons; feature is hidden when unset |
 | `FLASK_DEBUG` | Set to `true` to enable debug mode (off by default) |
 
 ## Docker deployment
@@ -92,9 +108,10 @@ Set in `docker-compose.yml`:
 # Windows shortcut (prompts for Docker Hub username)
 build_and_push.bat
 
-# Manual — use versioned tags to preserve previous images on Docker Hub
-docker build -t sockenteufel/todo-app:1.0.0 -t sockenteufel/todo-app:latest .
-docker push sockenteufel/todo-app:1.0.0
+# Manual — use versioned tags to preserve previous images on Docker Hub.
+# Keep the tag in sync with APP_VERSION in app.py (shown in the sidebar).
+docker build -t sockenteufel/todo-app:1.6.1 -t sockenteufel/todo-app:latest .
+docker push sockenteufel/todo-app:1.6.1
 docker push sockenteufel/todo-app:latest
 ```
 

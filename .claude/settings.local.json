@@ -1,16 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip install:*)",
-      "Bash(python:*)",
-      "Bash(curl:*)",
-      "Bash(git init:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git remote:*)",
-      "Bash(git push:*)",
-      "Bash(gh api:*)",
-      "Bash(git config:*)"
+      "Bash(mv todo-fresh/.git todo-fresh/.claude todo-fresh/.dockerignore todo-fresh/.gitignore todo-fresh/templates todo/)",
+      "Bash(mv todo-fresh/* todo/)",
+      "Bash(rmdir todo-fresh *)",
+      "Bash(cp todo-fresh/.claude/settings.local.json todo/.claude/settings.local.json)",
+      "Bash(mv todo-fresh/CLAUDE.md todo-fresh/Dockerfile todo-fresh/README.md todo-fresh/app.py todo-fresh/build_and_push.bat todo-fresh/docker-compose.yml todo-fresh/error.png todo-fresh/iniciar.bat todo-fresh/requirements.txt todo/)",
+      "Bash(rm -rf todo-fresh)",
+      "Bash(git fsck *)",
+      "Bash(git checkout *)",
+      "Bash(python -c ' *)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(docker --version)",
+      "Bash(docker info *)",
+      "PowerShell($d = Get-Command docker -ErrorAction SilentlyContinue; if \\($d\\) { \"docker: $\\($d.Source\\)\"; docker --version; \"--- daemon ---\"; docker info --format '{{.ServerVersion}} / user: {{.Username}}' } else { \"docker NO encontrado en PATH\" })",
+      "Bash(python -c \"import json;d=json.load\\(open\\('data/tasks.json',encoding='utf-8'\\)\\);print\\(json.dumps\\(d.get\\('categories'\\),ensure_ascii=False\\)\\);print\\(len\\(d['tasks']\\)\\);print\\(json.dumps\\(d['tasks'][0],ensure_ascii=False\\)\\)\")",
+      "Bash(python -)",
+      "Bash(OBSIDIAN_VAULT=\"Segundo Cerebro\" python -)",
+      "Bash(OBSIDIAN_VAULT=\"Segundo Cerebro\" PYTHONIOENCODING=utf-8 python -)",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(git add *)"
     ]
   }
 }
